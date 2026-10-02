@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>每日任務動態日曆</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --rd-color: #f43f5e;
+      --rd-bg: rgba(244, 63, 94, 0.15);
+      --bass-color: #06b6d4;
+      --jp-color: #a855f7;
+      --abs-color: #10b981;
+      --chest-color: #f59e0b;
+      --leg-color: #ec4899;
+      --back-color: #6366f1;
+      --j-color: #eab308;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    /* 頂部標題與工具列 */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+      background: var(--card-bg);
+      padding: 18px 24px;
+      border-radius: 16px;
+      border: 1px solid var(--card-border);
+    }
+
+    .title-group h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .title-group p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .month-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      background: #334155;
+      color: var(--text-main);
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: #475569;
+    }
+
+    .btn-primary {
+      background: #0284c7;
+    }
+
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+
+    .month-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      min-width: 140px;
+      text-align: center;
+    }
+
+    /* 圖例與操作設定 */
+    .dashboard-panel {
+      background: var(--card-bg);
+      padding: 16px 20px;
+      border-radius: 14px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .legend-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: #fff;
+      user-select: none;
+    }
+
+    .badge-rd { background: var(--rd-color); }
+    .badge-bass { background: var(--bass-color); }
+    .badge-jp { background: var(--jp-color); }
+    .badge-abs { background: var(--abs-color); }
+    .badge-chest { background: var(--chest-color); }
+    .badge-leg { background: var(--leg-color); }
+    .badge-back { background: var(--back-color); }
+    .badge-j { background: var(--j-color); color: #000; font-weight: 700; }
+
+    .settings-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.85rem;
+    }
+
+    .settings-group label {
+      color: var(--text-muted);
+    }
+
+    .settings-group input[type="date"] {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    /* 日曆網格 */
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+
+    .calendar-header-day {
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 8px 0;
+      color: var(--text-muted);
+    }
+
+    .calendar-cell {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      min-height: 125px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.2s, transform 0.1s;
+    }
+
+    .calendar-cell:hover {
+      border-color: #64748b;
+    }
+
+    .calendar-cell.other-month {
+      opacity: 0.35;
+    }
+
+    .calendar-cell.today {
+      border: 2px solid var(--accent);
+    }
+
+    .calendar-cell.is-rd {
+      background: linear-gradient(180deg, var(--card-bg) 0%, var(--rd-bg) 100%);
+      border-color: rgba(244, 63, 94, 0.5);
+    }
+
+    .cell-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .cell-date {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .cell-rd-tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--rd-color);
+      color: white;
+      text-transform: uppercase;
+    }
+
+    .task-container {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-grow: 1;
+    }
+
+    .task-pill {
+      font-size: 0.72rem;
+      padding: 3px 6px;
+      border-radius: 5px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 說明視窗 Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      padding: 16px;
+    }
+
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 440px;
+      padding: 24px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .modal-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .calendar-cell {
+        min-height: 95px;
+        padding: 5px;
+      }
+      .task-pill {
+        font-size: 0.65rem;
+        padding: 2px 4px;
+      }
+      .month-title {
+        font-size: 1.05rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- 頂部控制器 -->
+  <header>
+    <div class="title-group">
+      <h1>🗓️ 每日任務動態排程日曆</h1>
+      <p>點擊日期格子即可即時「切換 RD / 工作日」，所有規則自動動態聯動排程</p>
+    </div>
+    <div class="month-controls">
+      <button class="btn" id="prevMonthBtn">◀ 上個月</button>
+      <div class="month-title" id="monthDisplay"></div>
+      <button class="btn" id="nextMonthBtn">下個月 ▶</button>
+      <button class="btn btn-primary" id="todayBtn">今天</button>
+    </div>
+  </header>
+
+  <!-- 狀態面板與圖例 -->
+  <div class="dashboard-panel">
+    <div class="legend-list">
+      <span class="badge badge-rd">🏖️ RD (放假)</span>
+      <span class="badge badge-bass">🎸 Bass</span>
+      <span class="badge badge-jp">🇯🇵 日文</span>
+      <span class="badge badge-abs">⚡ 腹</span>
+      <span class="badge badge-leg">🦵 腳</span>
+      <span class="badge badge-chest">🛡️ 胸</span>
+      <span class="badge badge-back">🧗 背</span>
+      <span class="badge badge-j">⭐ 任務 J</span>
+    </div>
+
+    <div class="settings-group">
+      <label for="startDateInput">基準起算日：</label>
+      <input type="date" id="startDateInput">
+      <button class="btn" id="clearRdBtn" title="清空所有已手動標記的 RD">清空所有 RD</button>
+    </div>
+  </div>
+
+  <!-- 日曆網格 -->
+  <div class="calendar-grid" id="calendarGrid"></div>
+</div>
+
+<!-- 快速切換 / 檢視 Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalDateTitle">2026-10-01</div>
+      <button class="btn" id="modalCloseBtn">✕</button>
+    </div>
+    <div class="modal-body" id="modalTaskContent"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="modalToggleRdBtn">切換 RD 狀態</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ================= 核心設定與本地存儲 =================
+  const STORAGE_KEY_RD = 'calendar_rd_dates_v1';
+  const STORAGE_KEY_START = 'calendar_base_date_v1';
+
+  // 預設基準起算日（腹開始 / Bass 開始）
+  let baseDateStr = localStorage.getItem(STORAGE_KEY_START) || new Date().toISOString().split('T')[0];
+  let rdSet = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY_RD) || '[]'));
+
+  let viewDate = new Date(); // 當前檢視的年月
+
+  // DOM 元素
+  const calendarGrid = document.getElementById('calendarGrid');
+  const monthDisplay = document.getElementById('monthDisplay');
+  const startDateInput = document.getElementById('startDateInput');
+  const prevMonthBtn = document.getElementById('prevMonthBtn');
+  const nextMonthBtn = document.getElementById('nextMonthBtn');
+  const todayBtn = document.getElementById('todayBtn');
+  const clearRdBtn = document.getElementById('clearRdBtn');
+
+  // Modal 元素
+  const modalOverlay = document.getElementById('modalOverlay');
+  const modalDateTitle = document.getElementById('modalDateTitle');
+  const modalTaskContent = document.getElementById('modalTaskContent');
+  const modalToggleRdBtn = document.getElementById('modalToggleRdBtn');
+  const modalCloseBtn = document.getElementById('modalCloseBtn');
+  let selectedDateStr = null;
+
+  startDateInput.value = baseDateStr;
+
+  // ================= 任務核心動態推導引擎 =================
+  /**
+   * 計算從 baseDate 開始到指定日期之間的所有排程
+   * 遵循使用者規則：
+   * Part 1: Bass / 日文隔日輪替。RD 兩者都做；RD 後一天做與 RD 前一天不同的任務。
+   * Part 2: 順序為 腹(0) -> 腳(1) -> 胸(2) -> 背(3)。腹隔1日(週期2)、胸隔2日(週期3)、腳/背隔3日(週期4)。
+   * Part 3: 隔 5-7 日進行任務 J，但必須當天有 RD 才能觸發。
+   */
+  function generateScheduleMap(upToDateStr) {
+    const schedule = {};
+    const start = new Date(baseDateStr + 'T00:00:00');
+    const end = new Date(upToDateStr + 'T00:00:00');
+
+    // 若瀏覽月份在 baseDate 之前，往前推算起始點
+    let curr = new Date(Math.min(start.getTime(), end.getTime()));
+    // 多往後推 60 天確保邊界完整
+    const finalEnd = new Date(Math.max(start.getTime(), end.getTime()));
+    finalEnd.setDate(finalEnd.getDate() + 45);
+
+    let lastNonRdPart1 = 'Bass'; // 起始前預設上一個非 RD 是 Bass（因此 Day 0 為日文，或反之，這裡設定 Day 0 起始直接為 Bass）
+    let isFirstNonRd = true;
+    let daysSinceLastJ = 5; // 預設初始滿足間隔條件（遇到第一個 RD 即可進行）
+
+    while (curr <= finalEnd) {
+      const dStr = curr.toISOString().split('T')[0];
+      const isRD = rdSet.has(dStr);
+
+      // 距離基準日的天數差
+      const diffDays = Math.round((curr - start) / (1000 * 60 * 60 * 24));
+
+      // -------- Part 1: Bass & 日文 --------
+      let part1Tasks = [];
+      if (isRD) {
+        part1Tasks = ['Bass', '日文'];
+      } else {
+        if (isFirstNonRd) {
+          part1Tasks = ['Bass'];
+          lastNonRdPart1 = 'Bass';
+          isFirstNonRd = false;
+        } else {
+          // 非 RD 日：與「上一次非 RD 日」相反
+          const nextTask = (lastNonRdPart1 === 'Bass') ? '日文' : 'Bass';
+          part1Tasks = [nextTask];
+          lastNonRdPart1 = nextTask;
+        }
+      }
+
+      // -------- Part 2: 腹 / 胸 / 腳 / 背 --------
+      // 順序由 腹 -> 腳 -> 胸 -> 背 起跑：
+      // 腹: Day 0 開始，隔 1 日 (週期 2) -> (d % 2 === 0)
+      // 腳: Day 1 開始，隔 3 日 (週期 4) -> ((d - 1) % 4 === 0 && d >= 1)
+      // 胸: Day 2 開始，隔 2 日 (週期 3) -> ((d - 2) % 3 === 0 && d >= 2)
+      // 背: Day 3 開始，隔 3 日 (週期 4) -> ((d - 3) % 4 === 0 && d >= 3)
+      let workoutTasks = [];
+      if (diffDays >= 0) {
+        if (diffDays % 2 === 0) workoutTasks.push('腹');
+        if ((diffDays - 1) >= 0 && (diffDays - 1) % 4 === 0) workoutTasks.push('腳');
+        if ((diffDays - 2) >= 0 && (diffDays - 2) % 3 === 0) workoutTasks.push('胸');
+        if ((diffDays - 3) >= 0 && (diffDays - 3) % 4 === 0) workoutTasks.push('背');
+      }
+
+      // -------- Part 3: 任務 J --------
+      // 隔 5-7 日進行，且必須在 RD 進行
+      let hasTaskJ = false;
+      if (isRD && daysSinceLastJ >= 5) {
+        hasTaskJ = true;
+        daysSinceLastJ = 0; // 重設計數
+      } else {
+        daysSinceLastJ++;
+      }
+
+      schedule[dStr] = {
+        isRD,
+        part1Tasks,
+        workoutTasks,
+        hasTaskJ
+      };
+
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    return schedule;
+  }
+
+  // ================= 渲染日曆 =================
+  function renderCalendar() {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+
+    monthDisplay.textContent = `${year} 年 ${month + 1} 月`;
+
+    // 當月第一天與最後一天
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+
+    // 計算當月日曆所覆蓋的日期範圍（包含前後月補齊）
+    const startDate = new Date(firstDayOfMonth);
+    startDate.setDate(startDate.getDate() - startDate.getDay()); // 週日開始
+
+    const endDate = new Date(lastDayOfMonth);
+    endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
+
+    // 取得完整排程計算字典
+    const schedule = generateScheduleMap(endDate.toISOString().split('T')[0]);
+
+    // 清空並繪製週標題
+    calendarGrid.innerHTML = '';
+    const weekDays = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+    weekDays.forEach(day => {
+      const dayHeader = document.createElement('div');
+      dayHeader.className = 'calendar-header-day';
+      dayHeader.textContent = day;
+      calendarGrid.appendChild(dayHeader);
+    });
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    let iterDate = new Date(startDate);
+
+    while (iterDate <= endDate) {
+      const dStr = iterDate.toISOString().split('T')[0];
+      const isCurrentMonth = iterDate.getMonth() === month;
+      const isToday = dStr === todayStr;
+      const dayData = schedule[dStr] || { isRD: rdSet.has(dStr), part1Tasks: [], workoutTasks: [], hasTaskJ: false };
+
+      const cell = document.createElement('div');
+      cell.className = `calendar-cell ${!isCurrentMonth ? 'other-month' : ''} ${isToday ? 'today' : ''} ${dayData.isRD ? 'is-rd' : ''}`;
+      cell.dataset.date = dStr;
+
+      // 日期與 RD 狀態頭部
+      const cellTop = document.createElement('div');
+      cellTop.className = 'cell-top';
+
+      const dateNum = document.createElement('span');
+      dateNum.className = 'cell-date';
+      dateNum.textContent = iterDate.getDate();
+      cellTop.appendChild(dateNum);
+
+      if (dayData.isRD) {
+        const rdBadge = document.createElement('span');
+        rdBadge.className = 'cell-rd-tag';
+        rdBadge.textContent = 'RD';
+        cellTop.appendChild(rdBadge);
+      }
+
+      cell.appendChild(cellTop);
+
+      // 任務列表
+      const taskContainer = document.createElement('div');
+      taskContainer.className = 'task-container';
+
+      // 1. Part 1 徽章
+      dayData.part1Tasks.forEach(t => {
+        const pill = document.createElement('div');
+        pill.className = `task-pill badge-${t === 'Bass' ? 'bass' : 'jp'}`;
+        pill.innerHTML = `<span>${t === 'Bass' ? '🎸' : '🇯🇵'} ${t}</span>`;
+        taskContainer.appendChild(pill);
+      });
+
+      // 2. Part 2 健身部位徽章
+      if (dayData.workoutTasks.length > 0) {
+        dayData.workoutTasks.forEach(w => {
+          const pill = document.createElement('div');
+          let cls = 'badge-abs';
+          let icon = '⚡';
+          if (w === '胸') { cls = 'badge-chest'; icon = '🛡️'; }
+          if (w === '腳') { cls = 'badge-leg'; icon = '🦵'; }
+          if (w === '背') { cls = 'badge-back'; icon = '🧗'; }
+          pill.className = `task-pill ${cls}`;
+          pill.innerHTML = `<span>${icon} ${w}</span>`;
+          taskContainer.appendChild(pill);
+        });
+      }
+
+      // 3. Part 3 任務 J 徽章
+      if (dayData.hasTaskJ) {
+        const pill = document.createElement('div');
+        pill.className = 'task-pill badge-j';
+        pill.innerHTML = `<span>⭐ 任務 J</span>`;
+        taskContainer.appendChild(pill);
+      }
+
+      cell.appendChild(taskContainer);
+
+      // 點擊事件：開啟詳情 / 一鍵切換
+      cell.addEventListener('click', () => {
+        openModal(dStr, dayData);
+      });
+
+      calendarGrid.appendChild(cell);
+      iterDate.setDate(iterDate.getDate() + 1);
+    }
+  }
+
+  // ================= 互動 Modal 邏輯 =================
+  function openModal(dateStr, data) {
+    selectedDateStr = dateStr;
+    modalDateTitle.textContent = `${dateStr} 任務清單`;
+    modalToggleRdBtn.textContent = data.isRD ? '取消 RD (設為工作日)' : '設為 RD (放假日)';
+
+    let html = `
+      <div style="margin-bottom: 8px;">
+        <strong>當日狀態：</strong> ${data.isRD ? '<span style="color:var(--rd-color);font-weight:bold;">🏖️ RD 放假</span>' : '💼 工作日'}
+      </div>
+      <div><strong>任務排程：</strong></div>
+      <ul style="padding-left: 20px; line-height: 1.8;">
+    `;
+
+    if (data.part1Tasks.length > 0) {
+      html += `<li><strong>Part 1 (樂器與語言)：</strong> ${data.part1Tasks.join(' + ')}</li>`;
+    }
+    if (data.workoutTasks.length > 0) {
+      html += `<li><strong>Part 2 (健身部位)：</strong> ${data.workoutTasks.join('、')}</li>`;
+    } else {
+      html += `<li><strong>Part 2 (健身部位)：</strong> 今日休息</li>`;
+    }
+    if (data.hasTaskJ) {
+      html += `<li style="color:var(--j-color);font-weight:bold;">⭐ <strong>Part 3：</strong> 執行任務 J</li>`;
+    }
+
+    html += `</ul>`;
+    modalTaskContent.innerHTML = html;
+    modalOverlay.style.display = 'flex';
+  }
+
+  function closeModal() {
+    modalOverlay.style.display = 'none';
+    selectedDateStr = null;
+  }
+
+  // 切換選中日期的 RD 狀態
+  modalToggleRdBtn.addEventListener('click', () => {
+    if (!selectedDateStr) return;
+    if (rdSet.has(selectedDateStr)) {
+      rdSet.delete(selectedDateStr);
+    } else {
+      rdSet.add(selectedDateStr);
+    }
+    localStorage.setItem(STORAGE_KEY_RD, JSON.stringify([...rdSet]));
+    closeModal();
+    renderCalendar(); // 動態重新計算全局排程！
+  });
+
+  modalCloseBtn.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) closeModal();
+  });
+
+  // ================= 頂部按鈕事件 =================
+  prevMonthBtn.addEventListener('click', () => {
+    viewDate.setMonth(viewDate.getMonth() - 1);
+    renderCalendar();
+  });
+
+  nextMonthBtn.addEventListener('click', () => {
+    viewDate.setMonth(viewDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  todayBtn.addEventListener('click', () => {
+    viewDate = new Date();
+    renderCalendar();
+  });
+
+  startDateInput.addEventListener('change', (e) => {
+    if (e.target.value) {
+      baseDateStr = e.target.value;
+      localStorage.setItem(STORAGE_KEY_START, baseDateStr);
+      renderCalendar();
+    }
+  });
+
+  clearRdBtn.addEventListener('click', () => {
+    if (confirm('確定要清空所有已手動標記的 RD 嗎？')) {
+      rdSet.clear();
+      localStorage.removeItem(STORAGE_KEY_RD);
+      renderCalendar();
+    }
+  });
+
+  // 初次加載渲染
+  renderCalendar();
+</script>
+</body>
+</html>
