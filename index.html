@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>每日任務動態日曆</title>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
   <style>
     :root {
       --bg: #0f172a;
@@ -58,10 +63,30 @@
       border: 1px solid var(--card-border);
     }
 
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
     .title-group h1 {
       font-size: 1.5rem;
       font-weight: 700;
       letter-spacing: -0.5px;
+    }
+
+    .sync-status {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: #334155;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .sync-status.online {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
     }
 
     .month-controls {
@@ -298,6 +323,7 @@
   <header>
     <div class="title-group">
       <h1>🗓 每日任務動態排程日曆</h1>
+      <span class="sync-status" id="syncStatus">雲端連線中...</span>
     </div>
     <div class="month-controls">
       <button class="btn" id="prevMonthBtn">◀ 上個月</button>
@@ -319,7 +345,6 @@
       <span class="badge badge-j">⭐ 任務 J</span>
     </div>
 
-    <!-- 更改為清空當月 RD -->
     <button class="btn" id="clearRdBtn" title="清空當前檢視月份的所有 RD">清空當月 RD</button>
   </div>
 
@@ -340,7 +365,28 @@
 </div>
 
 <script>
-  // ================= 本地時間安全轉換輔助函式 =================
+  // ================= Firebase 專屬金鑰設定 =================
+  const firebaseConfig = {
+    apiKey: "AIzaSyAIIRQ9KTKFGWmtdlf6s5trjh3K0WOIAZs",
+    authDomain: "task-calendar-4dcd4.firebaseapp.com",
+    databaseURL: "https://task-calendar-4dcd4-default-rtdb.firebaseio.com",
+    projectId: "task-calendar-4dcd4",
+    storageBucket: "task-calendar-4dcd4.firebasestorage.app",
+    messagingSenderId: "216488339830",
+    appId: "1:216488339830:web:bdbc3d0c78f1b16806f257"
+  };
+
+  const syncStatusEl = document.getElementById('syncStatus');
+  let dbRef = null;
+
+  try {
+    firebase.initializeApp(firebaseConfig);
+    dbRef = firebase.database().ref('task_calendar_rd_dates');
+  } catch (err) {
+    console.error('Firebase 連線失敗：', err);
+    syncStatusEl.textContent = '本機離線模式';
+  }
+
   function formatLocalDate(d) {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -348,13 +394,8 @@
     return `${year}-${month}-${day}`;
   }
 
-  // ================= 核心設定 =================
-  const STORAGE_KEY_RD = 'calendar_rd_dates_v1';
-
-  // 永久鎖定基準起算日為 2026-10-01
   const baseDateStr = '2026-10-01';
-  let rdSet = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY_RD) || '[]'));
-
+  let rdSet = new Set();
   let viewDate = new Date();
 
   const calendarGrid = document.getElementById('calendarGrid');
@@ -371,7 +412,23 @@
   const modalCloseBtn = document.getElementById('modalCloseBtn');
   let selectedDateStr = null;
 
-  // ================= 任務核心動態推導引擎 =================
+  // 監聽雲端資料庫（任何裝置修改，立刻自動更新日曆）
+  if (dbRef) {
+    dbRef.on('value', (snapshot) => {
+      const data = snapshot.val() || [];
+      rdSet = new Set(data);
+      syncStatusEl.textContent = '🟢 雲端同步完成';
+      syncStatusEl.classList.add('online');
+      renderCalendar();
+    });
+  }
+
+  function saveRdSetToCloud() {
+    if (dbRef) {
+      dbRef.set(Array.from(rdSet));
+    }
+  }
+
   function generateScheduleMap(upToDateStr) {
     const schedule = {};
     const [sY, sM, sD] = baseDateStr.split('-').map(Number);
@@ -427,20 +484,13 @@
         daysSinceLastJ++;
       }
 
-      schedule[dStr] = {
-        isRD,
-        part1Tasks,
-        workoutTasks,
-        hasTaskJ
-      };
-
+      schedule[dStr] = { isRD, part1Tasks, workoutTasks, hasTaskJ };
       curr.setDate(curr.getDate() + 1);
     }
 
     return schedule;
   }
 
-  // ================= 渲染日曆 =================
   function renderCalendar() {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
@@ -581,7 +631,7 @@
     } else {
       rdSet.add(selectedDateStr);
     }
-    localStorage.setItem(STORAGE_KEY_RD, JSON.stringify([...rdSet]));
+    saveRdSetToCloud();
     closeModal();
     renderCalendar();
   });
@@ -606,7 +656,6 @@
     renderCalendar();
   });
 
-  // 清空當月 RD 的核心邏輯
   clearRdBtn.addEventListener('click', () => {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth() + 1;
@@ -618,7 +667,7 @@
           rdSet.delete(d);
         }
       }
-      localStorage.setItem(STORAGE_KEY_RD, JSON.stringify([...rdSet]));
+      saveRdSetToCloud();
       renderCalendar();
     }
   });
