@@ -1,3 +1,14 @@
+已將「清空所有 RD」按鈕改為「**清空當月 RD**」。
+
+點擊時系統會辨識當前正在瀏覽的年份與月份（例如 2026 年 10 月），**僅清除該月份已標記的 RD**，其餘月份的排程與 RD 設定皆會完整保留。
+
+---
+
+### 更新後的完整 `index.html` 程式碼
+
+請全選複製以下程式碼，貼上覆蓋 GitHub 的 `index.html` 儲存即可：
+
+```html
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
@@ -45,7 +56,6 @@
       max-width: 1100px;
     }
 
-    /* 頂部標題與工具列 */
     header {
       display: flex;
       flex-wrap: wrap;
@@ -63,12 +73,6 @@
       font-size: 1.5rem;
       font-weight: 700;
       letter-spacing: -0.5px;
-    }
-
-    .title-group p {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin-top: 4px;
     }
 
     .month-controls {
@@ -108,7 +112,6 @@
       text-align: center;
     }
 
-    /* 圖例與操作設定 */
     .dashboard-panel {
       background: var(--card-bg);
       padding: 16px 20px;
@@ -150,28 +153,6 @@
     .badge-back { background: var(--back-color); }
     .badge-j { background: var(--j-color); color: #000; font-weight: 700; }
 
-    .settings-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 0.85rem;
-    }
-
-    .settings-group label {
-      color: var(--text-muted);
-    }
-
-    .settings-group input[type="date"] {
-      background: #0f172a;
-      border: 1px solid var(--card-border);
-      color: var(--text-main);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      outline: none;
-    }
-
-    /* 日曆網格 */
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -208,7 +189,8 @@
     }
 
     .calendar-cell.today {
-      border: 2px solid var(--accent);
+      border: 2.5px solid var(--accent);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
     }
 
     .calendar-cell.is-rd {
@@ -258,7 +240,6 @@
       text-overflow: ellipsis;
     }
 
-    /* 說明視窗 Modal */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -325,11 +306,9 @@
 <body>
 
 <div class="container">
-  <!-- 頂部控制器 -->
   <header>
     <div class="title-group">
-      <h1>🗓️ 每日任務動態排程日曆</h1>
-      <p>點擊日期格子即可即時「切換 RD / 工作日」，所有規則自動動態聯動排程</p>
+      <h1>🗓 每日任務動態排程日曆</h1>
     </div>
     <div class="month-controls">
       <button class="btn" id="prevMonthBtn">◀ 上個月</button>
@@ -339,7 +318,6 @@
     </div>
   </header>
 
-  <!-- 狀態面板與圖例 -->
   <div class="dashboard-panel">
     <div class="legend-list">
       <span class="badge badge-rd">🏖️ RD (放假)</span>
@@ -352,22 +330,17 @@
       <span class="badge badge-j">⭐ 任務 J</span>
     </div>
 
-    <div class="settings-group">
-      <label for="startDateInput">基準起算日：</label>
-      <input type="date" id="startDateInput">
-      <button class="btn" id="clearRdBtn" title="清空所有已手動標記的 RD">清空所有 RD</button>
-    </div>
+    <!-- 更改為清空當月 RD -->
+    <button class="btn" id="clearRdBtn" title="清空當前檢視月份的所有 RD">清空當月 RD</button>
   </div>
 
-  <!-- 日曆網格 -->
   <div class="calendar-grid" id="calendarGrid"></div>
 </div>
 
-<!-- 快速切換 / 檢視 Modal -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title" id="modalDateTitle">2026-10-01</div>
+      <div class="modal-title" id="modalDateTitle">任務清單</div>
       <button class="btn" id="modalCloseBtn">✕</button>
     </div>
     <div class="modal-body" id="modalTaskContent"></div>
@@ -378,26 +351,30 @@
 </div>
 
 <script>
-  // ================= 核心設定與本地存儲 =================
-  const STORAGE_KEY_RD = 'calendar_rd_dates_v1';
-  const STORAGE_KEY_START = 'calendar_base_date_v1';
+  // ================= 本地時間安全轉換輔助函式 =================
+  function formatLocalDate(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
-  // 預設基準起算日（腹開始 / Bass 開始）
-  let baseDateStr = localStorage.getItem(STORAGE_KEY_START) || new Date().toISOString().split('T')[0];
+  // ================= 核心設定 =================
+  const STORAGE_KEY_RD = 'calendar_rd_dates_v1';
+
+  // 永久鎖定基準起算日為 2026-10-01
+  const baseDateStr = '2026-10-01';
   let rdSet = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY_RD) || '[]'));
 
-  let viewDate = new Date(); // 當前檢視的年月
+  let viewDate = new Date();
 
-  // DOM 元素
   const calendarGrid = document.getElementById('calendarGrid');
   const monthDisplay = document.getElementById('monthDisplay');
-  const startDateInput = document.getElementById('startDateInput');
   const prevMonthBtn = document.getElementById('prevMonthBtn');
   const nextMonthBtn = document.getElementById('nextMonthBtn');
   const todayBtn = document.getElementById('todayBtn');
   const clearRdBtn = document.getElementById('clearRdBtn');
 
-  // Modal 元素
   const modalOverlay = document.getElementById('modalOverlay');
   const modalDateTitle = document.getElementById('modalDateTitle');
   const modalTaskContent = document.getElementById('modalTaskContent');
@@ -405,39 +382,29 @@
   const modalCloseBtn = document.getElementById('modalCloseBtn');
   let selectedDateStr = null;
 
-  startDateInput.value = baseDateStr;
-
   // ================= 任務核心動態推導引擎 =================
-  /**
-   * 計算從 baseDate 開始到指定日期之間的所有排程
-   * 遵循使用者規則：
-   * Part 1: Bass / 日文隔日輪替。RD 兩者都做；RD 後一天做與 RD 前一天不同的任務。
-   * Part 2: 順序為 腹(0) -> 腳(1) -> 胸(2) -> 背(3)。腹隔1日(週期2)、胸隔2日(週期3)、腳/背隔3日(週期4)。
-   * Part 3: 隔 5-7 日進行任務 J，但必須當天有 RD 才能觸發。
-   */
   function generateScheduleMap(upToDateStr) {
     const schedule = {};
-    const start = new Date(baseDateStr + 'T00:00:00');
-    const end = new Date(upToDateStr + 'T00:00:00');
+    const [sY, sM, sD] = baseDateStr.split('-').map(Number);
+    const start = new Date(sY, sM - 1, sD);
 
-    // 若瀏覽月份在 baseDate 之前，往前推算起始點
-    let curr = new Date(Math.min(start.getTime(), end.getTime()));
-    // 多往後推 60 天確保邊界完整
+    const [eY, eM, eD] = upToDateStr.split('-').map(Number);
+    const end = new Date(eY, eM - 1, eD);
+
+    let curr = new Date(start);
     const finalEnd = new Date(Math.max(start.getTime(), end.getTime()));
     finalEnd.setDate(finalEnd.getDate() + 45);
 
-    let lastNonRdPart1 = 'Bass'; // 起始前預設上一個非 RD 是 Bass（因此 Day 0 為日文，或反之，這裡設定 Day 0 起始直接為 Bass）
+    let lastNonRdPart1 = 'Bass';
     let isFirstNonRd = true;
-    let daysSinceLastJ = 5; // 預設初始滿足間隔條件（遇到第一個 RD 即可進行）
+    let daysSinceLastJ = 5;
 
     while (curr <= finalEnd) {
-      const dStr = curr.toISOString().split('T')[0];
+      const dStr = formatLocalDate(curr);
       const isRD = rdSet.has(dStr);
-
-      // 距離基準日的天數差
       const diffDays = Math.round((curr - start) / (1000 * 60 * 60 * 24));
 
-      // -------- Part 1: Bass & 日文 --------
+      // 1. Part 1: Bass / 日文
       let part1Tasks = [];
       if (isRD) {
         part1Tasks = ['Bass', '日文'];
@@ -447,19 +414,13 @@
           lastNonRdPart1 = 'Bass';
           isFirstNonRd = false;
         } else {
-          // 非 RD 日：與「上一次非 RD 日」相反
           const nextTask = (lastNonRdPart1 === 'Bass') ? '日文' : 'Bass';
           part1Tasks = [nextTask];
           lastNonRdPart1 = nextTask;
         }
       }
 
-      // -------- Part 2: 腹 / 胸 / 腳 / 背 --------
-      // 順序由 腹 -> 腳 -> 胸 -> 背 起跑：
-      // 腹: Day 0 開始，隔 1 日 (週期 2) -> (d % 2 === 0)
-      // 腳: Day 1 開始，隔 3 日 (週期 4) -> ((d - 1) % 4 === 0 && d >= 1)
-      // 胸: Day 2 開始，隔 2 日 (週期 3) -> ((d - 2) % 3 === 0 && d >= 2)
-      // 背: Day 3 開始，隔 3 日 (週期 4) -> ((d - 3) % 4 === 0 && d >= 3)
+      // 2. Part 2: 腹(0) -> 腳(1) -> 胸(2) -> 背(3)
       let workoutTasks = [];
       if (diffDays >= 0) {
         if (diffDays % 2 === 0) workoutTasks.push('腹');
@@ -468,12 +429,11 @@
         if ((diffDays - 3) >= 0 && (diffDays - 3) % 4 === 0) workoutTasks.push('背');
       }
 
-      // -------- Part 3: 任務 J --------
-      // 隔 5-7 日進行，且必須在 RD 進行
+      // 3. Part 3: 任務 J
       let hasTaskJ = false;
       if (isRD && daysSinceLastJ >= 5) {
         hasTaskJ = true;
-        daysSinceLastJ = 0; // 重設計數
+        daysSinceLastJ = 0;
       } else {
         daysSinceLastJ++;
       }
@@ -498,21 +458,17 @@
 
     monthDisplay.textContent = `${year} 年 ${month + 1} 月`;
 
-    // 當月第一天與最後一天
     const firstDayOfMonth = new Date(year, month, 1);
     const lastDayOfMonth = new Date(year, month + 1, 0);
 
-    // 計算當月日曆所覆蓋的日期範圍（包含前後月補齊）
     const startDate = new Date(firstDayOfMonth);
-    startDate.setDate(startDate.getDate() - startDate.getDay()); // 週日開始
+    startDate.setDate(startDate.getDate() - startDate.getDay());
 
     const endDate = new Date(lastDayOfMonth);
     endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
 
-    // 取得完整排程計算字典
-    const schedule = generateScheduleMap(endDate.toISOString().split('T')[0]);
+    const schedule = generateScheduleMap(formatLocalDate(endDate));
 
-    // 清空並繪製週標題
     calendarGrid.innerHTML = '';
     const weekDays = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
     weekDays.forEach(day => {
@@ -522,20 +478,19 @@
       calendarGrid.appendChild(dayHeader);
     });
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
     let iterDate = new Date(startDate);
 
     while (iterDate <= endDate) {
-      const dStr = iterDate.toISOString().split('T')[0];
+      const dStr = formatLocalDate(iterDate);
       const isCurrentMonth = iterDate.getMonth() === month;
-      const isToday = dStr === todayStr;
+      const isToday = (dStr === todayStr);
       const dayData = schedule[dStr] || { isRD: rdSet.has(dStr), part1Tasks: [], workoutTasks: [], hasTaskJ: false };
 
       const cell = document.createElement('div');
       cell.className = `calendar-cell ${!isCurrentMonth ? 'other-month' : ''} ${isToday ? 'today' : ''} ${dayData.isRD ? 'is-rd' : ''}`;
       cell.dataset.date = dStr;
 
-      // 日期與 RD 狀態頭部
       const cellTop = document.createElement('div');
       cellTop.className = 'cell-top';
 
@@ -553,11 +508,9 @@
 
       cell.appendChild(cellTop);
 
-      // 任務列表
       const taskContainer = document.createElement('div');
       taskContainer.className = 'task-container';
 
-      // 1. Part 1 徽章
       dayData.part1Tasks.forEach(t => {
         const pill = document.createElement('div');
         pill.className = `task-pill badge-${t === 'Bass' ? 'bass' : 'jp'}`;
@@ -565,7 +518,6 @@
         taskContainer.appendChild(pill);
       });
 
-      // 2. Part 2 健身部位徽章
       if (dayData.workoutTasks.length > 0) {
         dayData.workoutTasks.forEach(w => {
           const pill = document.createElement('div');
@@ -580,7 +532,6 @@
         });
       }
 
-      // 3. Part 3 任務 J 徽章
       if (dayData.hasTaskJ) {
         const pill = document.createElement('div');
         pill.className = 'task-pill badge-j';
@@ -590,7 +541,6 @@
 
       cell.appendChild(taskContainer);
 
-      // 點擊事件：開啟詳情 / 一鍵切換
       cell.addEventListener('click', () => {
         openModal(dStr, dayData);
       });
@@ -600,7 +550,6 @@
     }
   }
 
-  // ================= 互動 Modal 邏輯 =================
   function openModal(dateStr, data) {
     selectedDateStr = dateStr;
     modalDateTitle.textContent = `${dateStr} 任務清單`;
@@ -636,7 +585,6 @@
     selectedDateStr = null;
   }
 
-  // 切換選中日期的 RD 狀態
   modalToggleRdBtn.addEventListener('click', () => {
     if (!selectedDateStr) return;
     if (rdSet.has(selectedDateStr)) {
@@ -646,7 +594,7 @@
     }
     localStorage.setItem(STORAGE_KEY_RD, JSON.stringify([...rdSet]));
     closeModal();
-    renderCalendar(); // 動態重新計算全局排程！
+    renderCalendar();
   });
 
   modalCloseBtn.addEventListener('click', closeModal);
@@ -654,7 +602,6 @@
     if (e.target === modalOverlay) closeModal();
   });
 
-  // ================= 頂部按鈕事件 =================
   prevMonthBtn.addEventListener('click', () => {
     viewDate.setMonth(viewDate.getMonth() - 1);
     renderCalendar();
@@ -670,24 +617,26 @@
     renderCalendar();
   });
 
-  startDateInput.addEventListener('change', (e) => {
-    if (e.target.value) {
-      baseDateStr = e.target.value;
-      localStorage.setItem(STORAGE_KEY_START, baseDateStr);
-      renderCalendar();
-    }
-  });
-
+  // 清空當月 RD 的核心邏輯
   clearRdBtn.addEventListener('click', () => {
-    if (confirm('確定要清空所有已手動標記的 RD 嗎？')) {
-      rdSet.clear();
-      localStorage.removeItem(STORAGE_KEY_RD);
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth() + 1;
+    const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+
+    if (confirm(`確定要清空 ${year} 年 ${month} 月的所有 RD 嗎？`)) {
+      for (const d of Array.from(rdSet)) {
+        if (d.startsWith(monthPrefix)) {
+          rdSet.delete(d);
+        }
+      }
+      localStorage.setItem(STORAGE_KEY_RD, JSON.stringify([...rdSet]));
       renderCalendar();
     }
   });
 
-  // 初次加載渲染
   renderCalendar();
 </script>
 </body>
 </html>
+
+```
